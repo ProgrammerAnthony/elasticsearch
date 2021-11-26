@@ -158,6 +158,7 @@ public interface ZenPing extends Releasable {
 
     /**
      * a utility collection of pings where only the most recent ping is stored per node
+     * PingCollection定义了DiscoveryNode与PingResponse的map，并提供了addPing方法来添加pingResponse
      */
     class PingCollection {
 

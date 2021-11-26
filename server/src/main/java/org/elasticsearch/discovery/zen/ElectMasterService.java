@@ -49,6 +49,7 @@ public class ElectMasterService {
     /**
      * a class to encapsulate all the information about a candidate in a master election
      * that is needed to decided which of the candidates should win
+     * master candidate 通过竞选成为master
      */
     public static class MasterCandidate {
 
@@ -122,6 +123,7 @@ public class ElectMasterService {
         return count;
     }
 
+    //candidates 不低于minimumMasterNodes
     public boolean hasEnoughCandidates(Collection<MasterCandidate> candidates) {
         if (candidates.isEmpty()) {
             return false;

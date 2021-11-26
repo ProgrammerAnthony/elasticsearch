@@ -232,7 +232,7 @@ public abstract class TransportClient extends AbstractClient {
             List<LifecycleComponent> pluginLifecycleComponents = new ArrayList<>(pluginsService.getGuiceServiceClasses().stream()
                 .map(injector::getInstance).collect(Collectors.toList()));
             resourcesToClose.addAll(pluginLifecycleComponents);
-
+            //update volatile state
             transportService.start();
             transportService.acceptIncomingRequests();
 

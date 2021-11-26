@@ -33,6 +33,7 @@ import java.util.TreeSet;
 
 /**
  * Represents a node role.
+ *  节点角色
  */
 public abstract class DiscoveryNodeRole implements Comparable<DiscoveryNodeRole> {
 

@@ -116,6 +116,15 @@ public class UnicastZenPing implements ZenPing {
 
     private volatile boolean closed = false;
 
+    /**
+     * 在构造方法中，完成了配置等操作，从配置中读取其他节点ip信息存到configuredHosts中，配置操作超时的时长，以及注册远程数据传输服务
+     * 完成线程池的构造，这里还对discovery/zen/unicast注册了requsetHandler用于处理同集群其他节点传来的ping请求的处理。
+     * @param settings
+     * @param threadPool
+     * @param transportService
+     * @param seedHostsProvider
+     * @param contextProvider
+     */
     public UnicastZenPing(Settings settings, ThreadPool threadPool, TransportService transportService,
                           SeedHostsProvider seedHostsProvider, PingContextProvider contextProvider) {
         this.threadPool = threadPool;

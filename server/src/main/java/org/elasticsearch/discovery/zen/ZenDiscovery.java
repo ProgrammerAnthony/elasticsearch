@@ -241,6 +241,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent implements Discover
 
     @Override
     protected void doStart() {
+        //外部调用会触发这里
         DiscoveryNode localNode = transportService.getLocalNode();
         assert localNode != null;
         synchronized (stateMutex) {
@@ -441,6 +442,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent implements Discover
         }
 
         if (transportService.getLocalNode().equals(masterNode)) {
+            //选举成为master
             final int requiredJoins = Math.max(0, electMaster.minimumMasterNodes() - 1); // we count as one
             logger.debug("elected as master, waiting for incoming joins ([{}] needed)", requiredJoins);
             nodeJoinController.waitToBeElectedAsMaster(requiredJoins, masterElectionWaitForJoinsTimeout,
@@ -463,6 +465,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent implements Discover
 
             );
         } else {
+            //不是master，则链接master
             // process any incoming joins (they will fail because we are not the master)
             nodeJoinController.stopElectionContext(masterNode + " elected");
 
@@ -563,6 +566,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent implements Discover
     }
 
     private void handleLeaveRequest(final DiscoveryNode node) {
+        //volatile state
         if (lifecycleState() != Lifecycle.State.STARTED) {
             // not started, ignore a node failure
             return;
@@ -796,6 +800,7 @@ public class ZenDiscovery extends AbstractLifecycleComponent implements Discover
 
     private DiscoveryNode findMaster() {
         logger.trace("starting to ping");
+        //获取所有节点列表(不包含自己)
         List<ZenPing.PingResponse> fullPingResponses = pingAndWait(pingTimeout).toList();
         if (fullPingResponses == null) {
             logger.trace("No full ping responses");
@@ -818,22 +823,26 @@ public class ZenDiscovery extends AbstractLifecycleComponent implements Discover
         // add our selves
         assert fullPingResponses.stream().map(ZenPing.PingResponse::node)
             .filter(n -> n.equals(localNode)).findAny().isPresent() == false;
-
+        //单独添加当前节点到节点列表里
         fullPingResponses.add(new ZenPing.PingResponse(localNode, null, this.clusterState()));
 
         // filter responses
+        // 通过masterElectionIgnoreNonMasters参数来判断是否忽略没有候选资格的节点
         final List<ZenPing.PingResponse> pingResponses = filterPingResponses(fullPingResponses, masterElectionIgnoreNonMasters, logger);
 
+        //活动主节点列表,一般为1或者null
         List<DiscoveryNode> activeMasters = new ArrayList<>();
         for (ZenPing.PingResponse pingResponse : pingResponses) {
             // We can't include the local node in pingMasters list, otherwise we may up electing ourselves without
             // any check / verifications from other nodes in ZenDiscover#innerJoinCluster()
+            // 添加除了自己以外的所有主节点到activeMasters里
             if (pingResponse.master() != null && !localNode.equals(pingResponse.master())) {
                 activeMasters.add(pingResponse.master());
             }
         }
 
         // nodes discovered during pinging
+        // 有竞选主节点资格的节点列表
         List<ElectMasterService.MasterCandidate> masterCandidates = new ArrayList<>();
         for (ZenPing.PingResponse pingResponse : pingResponses) {
             if (pingResponse.node().isMasterNode()) {
@@ -841,8 +850,11 @@ public class ZenDiscovery extends AbstractLifecycleComponent implements Discover
             }
         }
 
+        //如果当前没有存活节点，则有资格的候选节点开始进行选举
         if (activeMasters.isEmpty()) {
+            // 判断是否满足最小节点数设置  discovery_zen_minmum_master_nodes 配置的值，如果值小于1，直接返回true，否则判断候选节点数是否满足配置。
             if (electMaster.hasEnoughCandidates(masterCandidates)) {
+                //满足条件后开始正式的选举过程
                 final ElectMasterService.MasterCandidate winner = electMaster.electMaster(masterCandidates);
                 logger.trace("candidate {} won election", winner);
                 return winner.getNode();
@@ -952,7 +964,12 @@ public class ZenDiscovery extends AbstractLifecycleComponent implements Discover
     private ZenPing.PingCollection pingAndWait(TimeValue timeout) {
         final CompletableFuture<ZenPing.PingCollection> response = new CompletableFuture<>();
         try {
-            zenPing.ping(response::complete, timeout);
+            zenPing.ping(new Consumer<ZenPing.PingCollection>() {
+                @Override
+                public void accept(ZenPing.PingCollection value) {
+                    response.complete(value);
+                }
+            }, timeout);
         } catch (Exception ex) {
             // logged later
             response.completeExceptionally(ex);
